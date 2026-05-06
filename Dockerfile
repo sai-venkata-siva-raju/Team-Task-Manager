@@ -4,14 +4,14 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy backend package files
+COPY backend/package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
-# Copy application code
-COPY . .
+# Copy backend application code
+COPY backend/ .
 
 # Expose port 5000
 EXPOSE 5000
