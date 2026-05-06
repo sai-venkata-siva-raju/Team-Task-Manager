@@ -7,6 +7,7 @@ import {
   Filter,
   Calendar,
   User,
+  Edit,
   Trash2
 } from 'lucide-react';
 import axios from 'axios';
@@ -19,6 +20,7 @@ const Tasks = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [filters, setFilters] = useState({
     status: '',
     projectId: '',
@@ -33,6 +35,43 @@ const Tasks = () => {
     dueDate: ''
   });
   const [projectMembers, setProjectMembers] = useState([]);
+
+  const emptyTaskForm = {
+    title: '',
+    description: '',
+    project: '',
+    assignedTo: '',
+    priority: 'medium',
+    dueDate: ''
+  };
+
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    return new Date(date).toISOString().split('T')[0];
+  };
+
+  const buildTaskPayload = (data) => {
+    const taskPayload = {
+      title: data.title,
+      description: data.description,
+      project: data.project,
+      priority: data.priority
+    };
+
+    if (data.status) {
+      taskPayload.status = data.status;
+    }
+
+    if (data.assignedTo) {
+      taskPayload.assignedTo = data.assignedTo;
+    }
+
+    if (data.dueDate) {
+      taskPayload.dueDate = data.dueDate;
+    }
+
+    return taskPayload;
+  };
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -113,36 +152,50 @@ const Tasks = () => {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      const taskPayload = {
-        title: formData.title,
-        description: formData.description,
-        project: formData.project,
-        priority: formData.priority
-      };
-
-      if (formData.assignedTo) {
-        taskPayload.assignedTo = formData.assignedTo;
-      }
-
-      if (formData.dueDate) {
-        taskPayload.dueDate = formData.dueDate;
-      }
-
-      const response = await axios.post('/api/tasks', taskPayload);
+      const response = await axios.post('/api/tasks', buildTaskPayload(formData));
       setTasks([response.data, ...tasks]);
       setShowCreateModal(false);
-      setFormData({
-        title: '',
-        description: '',
-        project: '',
-        assignedTo: '',
-        priority: 'medium',
-        dueDate: ''
-      });
+      setFormData(emptyTaskForm);
       setProjectMembers([]);
       toast.success('Task created successfully');
     } catch (error) {
       toast.error('Failed to create task');
+      console.error(error);
+    }
+  };
+
+  const openEditTask = async (task) => {
+    const projectId = task.project?._id || task.project;
+
+    setEditingTask(task);
+    setFormData({
+      title: task.title || '',
+      description: task.description || '',
+      project: projectId || '',
+      assignedTo: task.assignedTo?._id || '',
+      status: task.status || 'todo',
+      priority: task.priority || 'medium',
+      dueDate: formatDateForInput(task.dueDate)
+    });
+    await fetchProjectMembers(projectId);
+  };
+
+  const handleEditTask = async (e) => {
+    e.preventDefault();
+
+    if (!editingTask) return;
+
+    try {
+      const response = await axios.put(`/api/tasks/${editingTask._id}`, buildTaskPayload(formData));
+      setTasks(tasks.map(task =>
+        task._id === editingTask._id ? response.data : task
+      ));
+      setEditingTask(null);
+      setFormData(emptyTaskForm);
+      setProjectMembers([]);
+      toast.success('Task updated successfully');
+    } catch (error) {
+      toast.error('Failed to update task');
       console.error(error);
     }
   };
@@ -338,6 +391,15 @@ const Tasks = () => {
                     <option value="review">Review</option>
                     <option value="completed">Completed</option>
                   </select>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => openEditTask(task)}
+                      className="p-1 text-gray-400 hover:text-primary-600"
+                      title="Edit task"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDeleteTask(task._id)}
                     className="p-1 text-gray-400 hover:text-red-600"
@@ -470,6 +532,7 @@ const Tasks = () => {
                   onClick={() => {
                     setShowCreateModal(false);
                     setProjectMembers([]);
+                    setFormData(emptyTaskForm);
                   }}
                   className="btn-secondary"
                 >
@@ -480,6 +543,130 @@ const Tasks = () => {
                   className="btn-primary"
                 >
                   Create Task
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {editingTask && user?.role === 'admin' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Task</h2>
+            <form onSubmit={handleEditTask}>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1">
+                    Task Title
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-title"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    id="edit-description"
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    id="edit-status"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="todo">To Do</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="review">Review</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="edit-assignedTo" className="block text-sm font-medium text-gray-700 mb-1">
+                    Assign To
+                  </label>
+                  <select
+                    id="edit-assignedTo"
+                    value={formData.assignedTo}
+                    onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Unassigned</option>
+                    {projectMembers.map(member => (
+                      <option key={member._id} value={member._id}>
+                        {member.username} ({member.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="edit-priority" className="block text-sm font-medium text-gray-700 mb-1">
+                      Priority
+                    </label>
+                    <select
+                      id="edit-priority"
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="edit-dueDate" className="block text-sm font-medium text-gray-700 mb-1">
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      id="edit-dueDate"
+                      value={formData.dueDate}
+                      onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingTask(null);
+                    setProjectMembers([]);
+                    setFormData(emptyTaskForm);
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  Save Changes
                 </button>
               </div>
             </form>

@@ -194,6 +194,17 @@ router.put('/:id', [
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    const isProjectAdmin = project.members.some(member =>
+      member.user.toString() === req.user._id.toString() &&
+      member.role === 'admin'
+    );
+    const isAppAdmin = req.user.role === 'admin';
+    const nonStatusFields = Object.keys(req.body).filter(field => field !== 'status');
+
+    if (nonStatusFields.length > 0 && !isAppAdmin && !isOwner && !isProjectAdmin) {
+      return res.status(403).json({ message: 'Only admins can edit task details' });
+    }
+
     const { title, description, status, priority, tags } = req.body;
     const assignedTo = req.body.assignedTo || undefined;
     const dueDate = req.body.dueDate || undefined;
