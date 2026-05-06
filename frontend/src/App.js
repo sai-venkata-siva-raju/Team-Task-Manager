@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Tasks from './pages/Tasks';
+import TaskDetail from './components/TaskDetail';
 import Profile from './pages/Profile';
 
 const ProtectedRoute = ({ children }) => {
@@ -76,6 +77,11 @@ function App() {
               <Route path="/tasks" element={
                 <ProtectedRoute>
                   <Tasks />
+                </ProtectedRoute>
+              } />
+              <Route path="/tasks/:id" element={
+                <ProtectedRoute>
+                  <TaskDetail />
                 </ProtectedRoute>
               } />
               <Route path="/profile" element={

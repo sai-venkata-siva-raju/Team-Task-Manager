@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Task = require('../models/Task');
 const Project = require('../models/Project');
+const AuditLog = require('../models/AuditLog');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -138,6 +139,20 @@ router.post('/', [
     await task.populate('assignedTo', 'username email');
     await task.populate('createdBy', 'username email');
 
+    // Log task creation
+    await AuditLog.logAction({
+      action: 'task_created',
+      entityType: 'task',
+      entityId: task._id,
+      changedBy: req.user._id,
+      description: `Created task "${title}" in project "${projectDoc.name}"`,
+      metadata: {
+        projectId: project,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    });
+
     res.status(201).json(task);
   } catch (error) {
     console.error(error);
@@ -177,12 +192,69 @@ router.put('/:id', [
     }
 
     const { title, description, status, priority, dueDate, assignedTo, tags } = req.body;
+    
+    const changes = new Map();
+    const oldTask = { ...task.toObject() };
 
-    if (title) task.title = title;
-    if (description !== undefined) task.description = description;
-    if (status) task.status = status;
-    if (priority) task.priority = priority;
-    if (dueDate) task.dueDate = dueDate;
+    if (title) {
+      changes.set('title', {
+        oldValue: task.title,
+        newValue: title,
+        fieldName: 'title'
+      });
+      task.title = title;
+    }
+    if (description !== undefined) {
+      changes.set('description', {
+        oldValue: task.description,
+        newValue: description,
+        fieldName: 'description'
+      });
+      task.description = description;
+    }
+    if (status) {
+      changes.set('status', {
+        oldValue: task.status,
+        newValue: status,
+        fieldName: 'status'
+      });
+      task.status = status;
+      
+      // Log specific status change
+      await AuditLog.logAction({
+        action: 'status_changed',
+        entityType: 'task',
+        entityId: task._id,
+        changedBy: req.user._id,
+        changes: new Map([['status', {
+          oldValue: oldTask.status,
+          newValue: status,
+          fieldName: 'status'
+        }]]),
+        description: `Changed task status from "${oldTask.status}" to "${status}"`,
+        metadata: {
+          projectId: task.project,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      });
+    }
+    if (priority) {
+      changes.set('priority', {
+        oldValue: task.priority,
+        newValue: priority,
+        fieldName: 'priority'
+      });
+      task.priority = priority;
+    }
+    if (dueDate) {
+      changes.set('dueDate', {
+        oldValue: task.dueDate,
+        newValue: dueDate,
+        fieldName: 'dueDate'
+      });
+      task.dueDate = dueDate;
+    }
     if (assignedTo) {
       // Check if assigned user is a project member or owner
       const isAssignedUserMember = project.members.some(member => 
@@ -190,23 +262,81 @@ router.put('/:id', [
       );
       const isAssignedUserOwner = project.owner.toString() === assignedTo.toString();
 
-      console.log('Debug Update - Assigned User ID:', assignedTo.toString());
-      console.log('Debug Update - Project Owner ID:', project.owner.toString());
-      console.log('Debug Update - Project Members:', project.members.map(m => ({ user: m.user.toString(), role: m.role })));
-      console.log('Debug Update - Is Assigned User Member:', isAssignedUserMember);
-      console.log('Debug Update - Is Assigned User Owner:', isAssignedUserOwner);
-
       if (!isAssignedUserMember && !isAssignedUserOwner) {
         return res.status(400).json({ message: 'Assigned user is not a project member or owner' });
       }
+
+      const oldAssignedTo = task.assignedTo ? task.assignedTo.toString() : null;
+      const newAssignedTo = assignedTo.toString();
+      
+      if (oldAssignedTo !== newAssignedTo) {
+        // Find user details for description
+        const User = require('../models/User');
+        const [oldUser, newUser] = await Promise.all([
+          oldAssignedTo ? User.findById(oldAssignedTo).select('username') : null,
+          User.findById(newAssignedTo).select('username')
+        ]);
+
+        const oldUsername = oldUser ? oldUser.username : 'Unassigned';
+        const newUsername = newUser ? newUser.username : 'Unknown';
+
+        // Log specific assignment change
+        await AuditLog.logAction({
+          action: 'assignment_changed',
+          entityType: 'task',
+          entityId: task._id,
+          changedBy: req.user._id,
+          changes: new Map([['assignedTo', {
+            oldValue: oldAssignedTo,
+            newValue: newAssignedTo,
+            fieldName: 'assignedTo'
+          }]]),
+          description: `Reassigned task from "${oldUsername}" to "${newUsername}"`,
+          metadata: {
+            projectId: task.project,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+          }
+        });
+      }
+
+      changes.set('assignedTo', {
+        oldValue: oldAssignedTo,
+        newValue: newAssignedTo,
+        fieldName: 'assignedTo'
+      });
       task.assignedTo = assignedTo;
     }
-    if (tags) task.tags = tags;
+    if (tags) {
+      changes.set('tags', {
+        oldValue: task.tags,
+        newValue: tags,
+        fieldName: 'tags'
+      });
+      task.tags = tags;
+    }
 
     await task.save();
     await task.populate('project', 'name');
     await task.populate('assignedTo', 'username email');
     await task.populate('createdBy', 'username email');
+
+    // Log general task update if there were changes other than status/assignment
+    if (changes.size > 0 && !status && !assignedTo) {
+      await AuditLog.logAction({
+        action: 'task_updated',
+        entityType: 'task',
+        entityId: task._id,
+        changedBy: req.user._id,
+        changes,
+        description: `Updated task "${task.title}"`,
+        metadata: {
+          projectId: task.project,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      });
+    }
 
     res.json(task);
   } catch (error) {

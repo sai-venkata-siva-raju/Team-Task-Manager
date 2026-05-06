@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Plus, 
@@ -6,7 +7,6 @@ import {
   Filter,
   Calendar,
   User,
-  AlertCircle,
   Trash2
 } from 'lucide-react';
 import axios from 'axios';
@@ -180,10 +180,7 @@ const Tasks = () => {
     }
   };
 
-  const isOverdue = (dueDate, status) => {
-    return dueDate && new Date(dueDate) < new Date() && status !== 'completed';
-  };
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -280,18 +277,17 @@ const Tasks = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="font-medium text-gray-900">{task.title}</h3>
+                    <Link 
+                      to={`/tasks/${task._id}`}
+                      className="font-medium text-gray-900 hover:text-primary-600 hover:underline"
+                    >
+                      {task.title}
+                    </Link>
                     <span className={`status-badge ${getStatusColor(task.status)}`}>
                       {task.status.replace('-', ' ')}
                     </span>
-                    {isOverdue(task.dueDate, task.status) && (
-                      <span className="flex items-center space-x-1 text-red-600 text-sm">
-                        <AlertCircle className="h-4 w-4" />
-                        <span>Overdue</span>
-                      </span>
-                    )}
                   </div>
-
+                  
                   {task.description && (
                     <p className="text-gray-600 text-sm mb-3">{task.description}</p>
                   )}
