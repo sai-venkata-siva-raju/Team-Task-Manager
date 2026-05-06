@@ -11,6 +11,18 @@ const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
+// Test endpoint
+router.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Auth route working',
+    env: {
+      JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'NOT_SET',
+      MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'NOT_SET',
+      NODE_ENV: process.env.NODE_ENV
+    }
+  });
+});
+
 // Register user
 router.post('/register', [
   body('username').isLength({ min: 3 }).trim().escape(),
