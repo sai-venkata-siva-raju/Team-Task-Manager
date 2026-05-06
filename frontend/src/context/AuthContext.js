@@ -64,6 +64,7 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           const response = await axios.get('/api/auth/me');
           dispatch({
             type: 'LOGIN_SUCCESS',
@@ -90,6 +91,7 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/api/auth/login', { email, password });
       
       localStorage.setItem('token', response.data.token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
       
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -120,6 +122,7 @@ export const AuthProvider = ({ children }) => {
       });
       
       localStorage.setItem('token', response.data.token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
       
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -141,6 +144,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
     dispatch({ type: 'LOGOUT' });
     toast.success('Logged out successfully');
   };
