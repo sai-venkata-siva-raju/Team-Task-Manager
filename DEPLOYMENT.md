@@ -32,6 +32,17 @@
    ```
 
 3. **Deploy Settings**
+   - Select "Dockerfile" as build method
+   - Choose region: **US East (Virginia)** or **Europe West** for best performance
+   - Enable auto-deploy on push to main branch
+
+4. **Region Selection**
+   **Recommended Regions for MongoDB Atlas:**
+   - **Asia Southeast (Singapore)** ⭐ **BEST FOR INDIA** - Lowest latency from India
+   - **Europe West (Ireland)** - Good alternative for Asian users
+   - **US East (Virginia)** - Decent backup option
+   
+   **Avoid:** US West/Oregon - Higher latency with MongoDB Atlas
    - Railway will automatically detect the Node.js app
    - The `railway.toml` and `nixpacks.toml` files handle the build process
    - Make sure the root directory is selected (not a subdirectory)
