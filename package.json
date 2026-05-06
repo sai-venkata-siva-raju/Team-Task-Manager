@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "A comprehensive team task management application with audit logging",
   "main": "backend/server.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "start": "cd backend && npm start",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",

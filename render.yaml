@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: team-task-manager
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && cd backend && npm install && cd ../frontend && npm install && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
