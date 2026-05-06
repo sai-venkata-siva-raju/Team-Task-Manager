@@ -6,9 +6,8 @@ const path = require('node:path');
 
 dotenv.config();
 
-// Startup logging
-console.log('🚀 Starting Team Task Manager Backend...');
-console.log('🔧 Environment Configuration:', {
+console.log('Starting Team Task Manager Backend...');
+console.log('Environment Configuration:', {
   NODE_ENV: process.env.NODE_ENV || 'undefined',
   PORT: process.env.PORT || 'undefined',
   MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'NOT_SET',
@@ -21,17 +20,35 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/team-task-manager', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+const getDatabaseStatus = () => {
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  return states[mongoose.connection.readyState] || 'unknown';
+};
+
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    database: getDatabaseStatus(),
+    timestamp: new Date().toISOString()
+  });
 });
 
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', () => {
-  console.log('Connected to MongoDB');
-});
+const connectDB = async () => {
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/team-task-manager';
+
+  try {
+    console.log('Connecting to MongoDB...');
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 10
+    });
+    console.log('Connected to MongoDB');
+  } catch (error) {
+    console.error('MongoDB connection failed:', error.message);
+    console.error('The app is still running. API routes that need the database will fail until MongoDB is reachable.');
+  }
+};
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -50,7 +67,7 @@ app.use('/api/audit', auditRoutes);
 if (process.env.NODE_ENV === 'production') {
   const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'build');
   app.use(express.static(frontendBuildPath));
-  
+
   app.get('*', (req, res) => {
     res.sendFile(path.join(frontendBuildPath, 'index.html'));
   });
@@ -60,18 +77,18 @@ const PORT = process.env.PORT || 5000;
 
 // Global error handlers
 process.on('uncaughtException', (error) => {
-  console.error('💥 Uncaught Exception:', error);
+  console.error('Uncaught Exception:', error);
   console.error('Stack trace:', error.stack);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('💥 Unhandled Rejection:', reason);
+  console.error('Unhandled Rejection:', reason);
   console.error('Promise:', promise);
-  process.exit(1);
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log('🌐 Ready to accept connections');
+  console.log(`Server running on port ${PORT}`);
+  console.log('Ready to accept connections');
+  connectDB();
 });
