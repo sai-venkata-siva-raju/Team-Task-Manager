@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Plus, 
@@ -7,7 +7,6 @@ import {
   Calendar,
   User,
   AlertCircle,
-  Edit,
   Trash2
 } from 'lucide-react';
 import axios from 'axios';
@@ -33,16 +32,9 @@ const Tasks = () => {
     priority: 'medium',
     dueDate: ''
   });
+  const [projectMembers, setProjectMembers] = useState([]);
 
-  useEffect(() => {
-    fetchTasks();
-    fetchProjects();
-    if (user?.role === 'admin') {
-      fetchUsers();
-    }
-  }, [filters]);
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (filters.status) params.append('status', filters.status);
@@ -57,25 +49,66 @@ const Tasks = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       const response = await axios.get('/api/projects');
       setProjects(response.data);
     } catch (error) {
       console.error(error);
     }
-  };
+  }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const response = await axios.get('/api/users');
       setUsers(response.data);
     } catch (error) {
       console.error(error);
     }
-  };
+  }, []);
+
+  const fetchProjectMembers = useCallback(async (projectId) => {
+    if (!projectId) {
+      setProjectMembers([]);
+      return;
+    }
+    
+    try {
+      const response = await axios.get(`/api/projects/${projectId}`);
+      const project = response.data;
+      
+      // Combine owner and members into a single array
+      const allMembers = [
+        {
+          _id: project.owner._id,
+          username: project.owner.username,
+          email: project.owner.email,
+          role: 'owner'
+        },
+        ...project.members.map(member => ({
+          _id: member.user._id,
+          username: member.user.username,
+          email: member.user.email,
+          role: member.role
+        }))
+      ];
+      
+      setProjectMembers(allMembers);
+    } catch (error) {
+      console.error('Error fetching project members:', error);
+      setProjectMembers([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTasks();
+    fetchProjects();
+    if (user?.role === 'admin') {
+      fetchUsers();
+    }
+  }, [filters, fetchTasks, fetchProjects, fetchUsers, user?.role]);
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
@@ -91,6 +124,7 @@ const Tasks = () => {
         priority: 'medium',
         dueDate: ''
       });
+      setProjectMembers([]);
       toast.success('Task created successfully');
     } catch (error) {
       toast.error('Failed to create task');
@@ -112,7 +146,7 @@ const Tasks = () => {
   };
 
   const handleDeleteTask = async (taskId) => {
-    if (!confirm('Are you sure you want to delete this task?')) {
+    if (!window.confirm('Are you sure you want to delete this task?')) {
       return;
     }
 
@@ -350,7 +384,11 @@ const Tasks = () => {
                     id="project"
                     required
                     value={formData.project}
-                    onChange={(e) => setFormData({ ...formData, project: e.target.value })}
+                    onChange={async (e) => {
+                      const newProjectId = e.target.value;
+                      setFormData({ ...formData, project: newProjectId, assignedTo: '' });
+                      await fetchProjectMembers(newProjectId);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="">Select a project</option>
@@ -369,13 +407,18 @@ const Tasks = () => {
                     value={formData.assignedTo}
                     onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={!formData.project}
                   >
                     <option value="">Unassigned</option>
-                    <option value={user?.id}>Myself</option>
-                    {users.map(user => (
-                      <option key={user._id} value={user._id}>{user.username}</option>
+                    {projectMembers.map(member => (
+                      <option key={member._id} value={member._id}>
+                        {member.username} ({member.role})
+                      </option>
                     ))}
                   </select>
+                  {!formData.project && (
+                    <p className="text-xs text-gray-500 mt-1">Select a project first to see available members</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -413,7 +456,10 @@ const Tasks = () => {
               <div className="mt-6 flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setProjectMembers([]);
+                  }}
                   className="btn-secondary"
                 >
                   Cancel

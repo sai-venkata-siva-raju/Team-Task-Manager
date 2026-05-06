@@ -1,16 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { 
-  ArrowLeft, 
-  Plus, 
-  Users, 
-  Calendar,
-  CheckSquare,
-  UserPlus,
-  Settings,
-  Trash2
-} from 'lucide-react';
+import { ArrowLeft, Users, Calendar, CheckSquare, UserPlus, Settings, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -24,12 +15,7 @@ const ProjectDetail = () => {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
 
-  useEffect(() => {
-    fetchProjectDetails();
-    fetchProjectTasks();
-  }, [id]);
-
-  const fetchProjectDetails = async () => {
+  const fetchProjectDetails = useCallback(async () => {
     try {
       const response = await axios.get(`/api/projects/${id}`);
       setProject(response.data);
@@ -40,18 +26,23 @@ const ProjectDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
-  const fetchProjectTasks = async () => {
+  const fetchProjectTasks = useCallback(async () => {
     try {
       const response = await axios.get(`/api/tasks?projectId=${id}`);
       setTasks(response.data);
     } catch (error) {
       console.error(error);
     }
-  };
+  }, [id]);
 
-  const handleAddMember = async (e) => {
+  useEffect(() => {
+    fetchProjectDetails();
+    fetchProjectTasks();
+  }, [id, fetchProjectDetails, fetchProjectTasks]);
+
+  const handleAddMember = useCallback(async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post(`/api/projects/${id}/members`, {
@@ -66,10 +57,10 @@ const ProjectDetail = () => {
       toast.error(error.response?.data?.message || 'Failed to add member');
       console.error(error);
     }
-  };
+  }, [id, memberEmail]);
 
-  const handleRemoveMember = async (userId) => {
-    if (!confirm('Are you sure you want to remove this member from the project?')) {
+  const handleRemoveMember = useCallback(async (userId) => {
+    if (!window.confirm('Are you sure you want to remove this member from project?')) {
       return;
     }
 
@@ -81,7 +72,7 @@ const ProjectDetail = () => {
       toast.error('Failed to remove member');
       console.error(error);
     }
-  };
+  }, [id]);
 
   const getStatusColor = (status) => {
     switch (status) {

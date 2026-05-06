@@ -54,7 +54,7 @@ const Profile = () => {
     setLoading(true);
 
     try {
-      const response = await axios.put(`/api/users/${user.id}`, formData);
+      await axios.put(`/api/users/${user.id}`, formData);
       toast.success('Profile updated successfully');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update profile');

@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   Plus, 
   FolderOpen, 
   Users, 
   Calendar,
-  MoreVertical,
   Edit,
-  Trash2,
-  UserPlus
+  Trash2
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const Projects = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -55,7 +54,7 @@ const Projects = () => {
   };
 
   const handleDeleteProject = async (projectId) => {
-    if (!confirm('Are you sure you want to delete this project? This will also delete all associated tasks.')) {
+    if (!window.confirm('Are you sure you want to delete this project? This will also delete all associated tasks.')) {
       return;
     }
 
@@ -130,7 +129,7 @@ const Projects = () => {
                   </div>
                   <div className="flex items-center space-x-1">
                     <button
-                      onClick={() => window.location.href = `/projects/${project._id}`}
+                      onClick={() => navigate(`/projects/${project._id}`)}
                       className="p-1 text-gray-400 hover:text-gray-600"
                     >
                       <Edit className="h-4 w-4" />

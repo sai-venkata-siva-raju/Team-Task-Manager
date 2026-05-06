@@ -104,14 +104,21 @@ router.post('/', [
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // If assignedTo is provided, check if the user is a project member
+    // If assignedTo is provided, check if the user is a project member or owner
     if (assignedTo) {
       const isAssignedUserMember = projectDoc.members.some(member => 
-        member.user.toString() === assignedTo
-      ) || projectDoc.owner.toString() === assignedTo;
+        member.user.toString() === assignedTo.toString()
+      );
+      const isAssignedUserOwner = projectDoc.owner.toString() === assignedTo.toString();
 
-      if (!isAssignedUserMember) {
-        return res.status(400).json({ message: 'Assigned user is not a project member' });
+      console.log('Debug - Assigned User ID:', assignedTo.toString());
+      console.log('Debug - Project Owner ID:', projectDoc.owner.toString());
+      console.log('Debug - Project Members:', projectDoc.members.map(m => ({ user: m.user.toString(), role: m.role })));
+      console.log('Debug - Is Assigned User Member:', isAssignedUserMember);
+      console.log('Debug - Is Assigned User Owner:', isAssignedUserOwner);
+
+      if (!isAssignedUserMember && !isAssignedUserOwner) {
+        return res.status(400).json({ message: 'Assigned user is not a project member or owner' });
       }
     }
 
@@ -177,13 +184,20 @@ router.put('/:id', [
     if (priority) task.priority = priority;
     if (dueDate) task.dueDate = dueDate;
     if (assignedTo) {
-      // Check if assigned user is a project member
+      // Check if assigned user is a project member or owner
       const isAssignedUserMember = project.members.some(member => 
-        member.user.toString() === assignedTo
-      ) || project.owner.toString() === assignedTo;
+        member.user.toString() === assignedTo.toString()
+      );
+      const isAssignedUserOwner = project.owner.toString() === assignedTo.toString();
 
-      if (!isAssignedUserMember) {
-        return res.status(400).json({ message: 'Assigned user is not a project member' });
+      console.log('Debug Update - Assigned User ID:', assignedTo.toString());
+      console.log('Debug Update - Project Owner ID:', project.owner.toString());
+      console.log('Debug Update - Project Members:', project.members.map(m => ({ user: m.user.toString(), role: m.role })));
+      console.log('Debug Update - Is Assigned User Member:', isAssignedUserMember);
+      console.log('Debug Update - Is Assigned User Owner:', isAssignedUserOwner);
+
+      if (!isAssignedUserMember && !isAssignedUserOwner) {
+        return res.status(400).json({ message: 'Assigned user is not a project member or owner' });
       }
       task.assignedTo = assignedTo;
     }
