@@ -1,7 +1,7 @@
 # Use Node.js 20 Alpine Linux image
 FROM node:20-alpine
 
-# Set working directory
+# Set working directory to backend
 WORKDIR /app
 
 # Copy backend package files
