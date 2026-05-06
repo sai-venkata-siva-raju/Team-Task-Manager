@@ -13,8 +13,7 @@ cmds = [
 [phases.start]
 nixPkgs = ["nodejs_20", "nodejs_20.pkgs.npm"]
 cmds = [
-  "node server.js",
-  "cd frontend && npm run build"
+  "node server.js"
 ]
 
 [start]
