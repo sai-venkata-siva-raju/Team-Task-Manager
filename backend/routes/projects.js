@@ -2,6 +2,8 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Project = require('../models/Project');
 const Task = require('../models/Task');
+const User = require('../models/User');
+const AuditLog = require('../models/AuditLog');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -81,6 +83,20 @@ router.post('/', [
     await project.save();
     await project.populate('owner', 'username email');
     await project.populate('members.user', 'username email');
+
+    // Log project creation
+    await AuditLog.logAction({
+      action: 'project_created',
+      entityType: 'project',
+      entityId: project._id,
+      changedBy: req.user._id,
+      description: `Created project "${name}"`,
+      metadata: {
+        projectId: project._id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    });
 
     res.status(201).json(project);
   } catch (error) {
@@ -190,6 +206,20 @@ router.post('/:id/members', [
     await project.save();
     await project.populate('members.user', 'username email');
 
+    // Log member addition
+    await AuditLog.logAction({
+      action: 'member_added',
+      entityType: 'project',
+      entityId: project._id,
+      changedBy: req.user._id,
+      description: `Added member "${userToAdd.username}" (${role || 'member'}) to project "${project.name}"`,
+      metadata: {
+        projectId: project._id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    });
+
     res.json(project);
   } catch (error) {
     console.error(error);
@@ -216,12 +246,30 @@ router.delete('/:id/members/:userId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    const removedMember = project.members.find(member => 
+      member.user.toString() === req.params.userId
+    );
+
     project.members = project.members.filter(member => 
       member.user.toString() !== req.params.userId
     );
 
     await project.save();
     await project.populate('members.user', 'username email');
+
+    // Log member removal
+    await AuditLog.logAction({
+      action: 'member_removed',
+      entityType: 'project',
+      entityId: project._id,
+      changedBy: req.user._id,
+      description: `Removed member "${removedMember.user.username}" from project "${project.name}"`,
+      metadata: {
+        projectId: project._id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      }
+    });
 
     res.json(project);
   } catch (error) {
