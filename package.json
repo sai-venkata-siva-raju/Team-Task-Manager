@@ -1,0 +1,22 @@
+{
+  "name": "team-task-manager",
+  "version": "1.0.0",
+  "description": "A comprehensive team task management application with audit logging",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend",
+    "vercel-build": "npm run build:frontend",
+    "deploy": "vercel --prod"
+  },
+  "keywords": ["task-management", "team", "audit", "react", "nodejs"],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
