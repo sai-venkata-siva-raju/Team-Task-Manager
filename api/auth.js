@@ -31,10 +31,10 @@ module.exports = async (req, res) => {
       await mongoose.connect(process.env.MONGODB_URI);
     }
 
-    const { url } = req;
-    
-    // Test endpoint
-    if (url === '/api/auth/test' && req.method === 'GET') {
+    console.log('Auth endpoint called:', req.method, req.url);
+
+    // Simple test
+    if (req.url === '/api/auth/test' && req.method === 'GET') {
       return res.json({ 
         message: 'Auth route working',
         env: {
@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
     }
 
     // Status endpoint
-    if (url === '/api/auth/status' && req.method === 'GET') {
+    if (req.url === '/api/auth/status' && req.method === 'GET') {
       return res.json({ 
         status: 'OK',
         message: 'Auth service is running',
@@ -54,67 +54,16 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Register endpoint
-    if (url === '/api/auth/register' && req.method === 'POST') {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { username, email, password } = req.body;
-
-      // Check if user exists
-      const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-      if (existingUser) {
-        return res.status(400).json({ message: 'User already exists' });
-      }
-
-      // Create new user
-      const user = new User({
-        username,
-        email,
-        password
-      });
-
-      await user.save();
-
-      // Log the action
-      await AuditLog.logAction({
-        action: 'USER_REGISTERED',
-        entityType: 'User',
-        entityId: user._id,
-        changedBy: user._id,
-        description: `User ${username} registered`,
-        metadata: {
-          ip: req.ip || req.connection.remoteAddress,
-          userAgent: req.get('User-Agent')
-        }
-      });
-
-      // Generate token
-      const token = generateToken(user._id);
-
-      return res.status(201).json({
-        message: 'User created successfully',
-        token,
-        user: {
-          id: user._id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar
-        }
-      });
-    }
-
-    // Login endpoint
-    if (url === '/api/auth/login' && req.method === 'POST') {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
+    // Login endpoint - simplified
+    if (req.url === '/api/auth/login' && req.method === 'POST') {
+      console.log('Login endpoint hit');
+      
       const { email, password } = req.body;
+      console.log('Login attempt for:', email);
+
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+      }
 
       // Find user
       const user = await User.findOne({ email });
@@ -128,21 +77,10 @@ module.exports = async (req, res) => {
         return res.status(400).json({ message: 'Invalid credentials' });
       }
 
-      // Log the action
-      await AuditLog.logAction({
-        action: 'USER_LOGIN',
-        entityType: 'User',
-        entityId: user._id,
-        changedBy: user._id,
-        description: `User ${user.username} logged in`,
-        metadata: {
-          ip: req.ip || req.connection.remoteAddress,
-          userAgent: req.get('User-Agent')
-        }
-      });
-
       // Generate token
       const token = generateToken(user._id);
+
+      console.log('Login successful for:', user.username);
 
       return res.json({
         message: 'Login successful',
@@ -158,10 +96,11 @@ module.exports = async (req, res) => {
     }
 
     // If no matching endpoint
-    return res.status(404).json({ message: 'Endpoint not found' });
+    console.log('No matching endpoint for:', req.url);
+    return res.status(404).json({ message: 'Endpoint not found', url: req.url });
 
   } catch (error) {
     console.error('Auth error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
