@@ -6,6 +6,15 @@ const path = require('node:path');
 
 dotenv.config();
 
+// Startup logging
+console.log('🚀 Starting Team Task Manager Backend...');
+console.log('🔧 Environment Configuration:', {
+  NODE_ENV: process.env.NODE_ENV || 'undefined',
+  PORT: process.env.PORT || 'undefined',
+  MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'NOT_SET',
+  JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'NOT_SET'
+});
+
 const app = express();
 
 // Middleware
@@ -47,6 +56,21 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const PORT = process.env.PORT || 5000;
+
+// Global error handlers
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+  console.error('Stack trace:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection:', reason);
+  console.error('Promise:', promise);
+  process.exit(1);
+});
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log('🌐 Ready to accept connections');
 });
