@@ -78,9 +78,9 @@ router.post('/', [
   body('title').notEmpty().trim().escape(),
   body('description').optional().trim().escape(),
   body('project').isMongoId(),
-  body('assignedTo').optional().isMongoId(),
+  body('assignedTo').optional({ checkFalsy: true }).isMongoId(),
   body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
-  body('dueDate').optional().isISO8601().toDate()
+  body('dueDate').optional({ checkFalsy: true }).isISO8601().toDate()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -88,7 +88,9 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, description, project, assignedTo, priority, dueDate, tags } = req.body;
+    const { title, description, project, priority, tags } = req.body;
+    const assignedTo = req.body.assignedTo || undefined;
+    const dueDate = req.body.dueDate || undefined;
 
     // Check if user has access to the project
     const projectDoc = await Project.findById(project);
@@ -167,7 +169,8 @@ router.put('/:id', [
   body('description').optional().trim().escape(),
   body('status').optional().isIn(['todo', 'in-progress', 'review', 'completed']),
   body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
-  body('dueDate').optional().isISO8601().toDate()
+  body('assignedTo').optional({ checkFalsy: true }).isMongoId(),
+  body('dueDate').optional({ checkFalsy: true }).isISO8601().toDate()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -191,7 +194,9 @@ router.put('/:id', [
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const { title, description, status, priority, dueDate, assignedTo, tags } = req.body;
+    const { title, description, status, priority, tags } = req.body;
+    const assignedTo = req.body.assignedTo || undefined;
+    const dueDate = req.body.dueDate || undefined;
     
     const changes = new Map();
     const oldTask = { ...task.toObject() };

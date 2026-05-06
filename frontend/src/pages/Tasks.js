@@ -113,7 +113,22 @@ const Tasks = () => {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('/api/tasks', formData);
+      const taskPayload = {
+        title: formData.title,
+        description: formData.description,
+        project: formData.project,
+        priority: formData.priority
+      };
+
+      if (formData.assignedTo) {
+        taskPayload.assignedTo = formData.assignedTo;
+      }
+
+      if (formData.dueDate) {
+        taskPayload.dueDate = formData.dueDate;
+      }
+
+      const response = await axios.post('/api/tasks', taskPayload);
       setTasks([response.data, ...tasks]);
       setShowCreateModal(false);
       setFormData({
