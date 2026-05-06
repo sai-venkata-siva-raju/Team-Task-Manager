@@ -35,6 +35,22 @@ app.get('/health', (req, res) => {
   });
 });
 
+const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'build');
+const frontendIndexPath = path.join(frontendBuildPath, 'index.html');
+
+app.get('/deployment-status', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    nodeEnv: process.env.NODE_ENV || null,
+    cwd: process.cwd(),
+    dirname: __dirname,
+    frontendBuildPath,
+    frontendIndexPath,
+    frontendBuildExists: fs.existsSync(frontendBuildPath),
+    frontendIndexExists: fs.existsSync(frontendIndexPath)
+  });
+});
+
 const connectDB = async () => {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/team-task-manager';
 
@@ -64,29 +80,29 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/audit', auditRoutes);
 
-// Serve static files from React app
-if (process.env.NODE_ENV === 'production') {
-  const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'build');
-  const frontendIndexPath = path.join(frontendBuildPath, 'index.html');
-  const hasFrontendBuild = fs.existsSync(frontendIndexPath);
+// Serve static files from the React app whenever the build is present.
+const hasFrontendBuild = fs.existsSync(frontendIndexPath);
 
-  if (!hasFrontendBuild) {
-    console.error(`Frontend build not found at ${frontendIndexPath}`);
+if (!hasFrontendBuild) {
+  console.error(`Frontend build not found at ${frontendIndexPath}`);
+}
+
+app.use(express.static(frontendBuildPath));
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ message: 'API route not found' });
   }
 
-  app.use(express.static(frontendBuildPath));
+  if (!hasFrontendBuild) {
+    return res.status(503).json({
+      message: 'Frontend build not found. Run the frontend build during deployment.',
+      expectedFile: frontendIndexPath
+    });
+  }
 
-  app.get('*', (req, res) => {
-    if (!hasFrontendBuild) {
-      return res.status(503).json({
-        message: 'Frontend build not found. Run the frontend build during deployment.',
-        expectedFile: frontendIndexPath
-      });
-    }
-
-    res.sendFile(frontendIndexPath);
-  });
-}
+  res.sendFile(frontendIndexPath);
+});
 
 const PORT = process.env.PORT || 5000;
 
