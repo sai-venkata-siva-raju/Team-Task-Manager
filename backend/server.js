@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const fs = require('node:fs');
 const path = require('node:path');
 
 dotenv.config();
@@ -66,10 +67,24 @@ app.use('/api/audit', auditRoutes);
 // Serve static files from React app
 if (process.env.NODE_ENV === 'production') {
   const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'build');
+  const frontendIndexPath = path.join(frontendBuildPath, 'index.html');
+  const hasFrontendBuild = fs.existsSync(frontendIndexPath);
+
+  if (!hasFrontendBuild) {
+    console.error(`Frontend build not found at ${frontendIndexPath}`);
+  }
+
   app.use(express.static(frontendBuildPath));
 
   app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    if (!hasFrontendBuild) {
+      return res.status(503).json({
+        message: 'Frontend build not found. Run the frontend build during deployment.',
+        expectedFile: frontendIndexPath
+      });
+    }
+
+    res.sendFile(frontendIndexPath);
   });
 }
 
