@@ -39,3 +39,4 @@ EXPOSE 5000
 # Start backend directly (matches server.js expectations for __dirname)
 CMD ["node", "backend/server.js"]
 
+
